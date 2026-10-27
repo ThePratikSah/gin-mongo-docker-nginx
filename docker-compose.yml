@@ -1,0 +1,44 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  api:
+    build: .
+    environment:
+      APP_ENV: production
+      HTTP_PORT: "8080"
+      MONGO_URI: mongodb://${MONGO_USER:-root}:${MONGO_PASSWORD:-change-me}@mongo:27017/?authSource=admin
+      MONGO_DATABASE: ${MONGO_DATABASE:-ginmongo}
+    expose:
+      - "8080"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    # environment:
+    # MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-root}
+    # MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-change-me}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: [ "CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
